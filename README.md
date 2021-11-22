@@ -12,7 +12,7 @@ Before writing this library, I was still working quite smoothly with 0x19/goesl 
 ## Install
 
 ```
-go get github.com/luadnh/goesl
+go get github.com/luandnh/goesl
 ```
 
 ## Examples
