@@ -36,10 +36,7 @@ func main() {
 		fmt.Println("Error connecting", err)
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
+	defer client.ExitAndClose()
     raw, err := client.Send("api sofia status")
 	if err != nil {
 		panic(err)
@@ -67,6 +64,5 @@ func main() {
 		}
 		log.Info(string(msgBytes))
 	}
-	conn.ExitAndClose()
 }
 ```

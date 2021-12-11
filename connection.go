@@ -1,3 +1,14 @@
+/*
+ * Copyright (c) 2021 LuanDNH
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ *
+ * Contributor(s):
+ * LuanDNH <luandnh98@gmail.com>
+ */
+
 package goesl
 
 import (
@@ -123,7 +134,7 @@ func (c *ESLConnection) SendWithContext(ctx context.Context, cmd string) (*ESLRe
 	}
 }
 
-// SendAsync - Send command and get response message
+// Send - Send command and get response message
 func (c *ESLConnection) Send(cmd string) (*ESLResponse, error) {
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
@@ -136,7 +147,12 @@ func (c *ESLConnection) Send(cmd string) (*ESLResponse, error) {
 	// Get response
 	c.responseChanMutex.RLock()
 	defer c.responseChanMutex.RUnlock()
-	select {
+	select { /*
+	 * Created on Sat Dec 11 2021
+	 *
+	 * Copyright (c) 2021 Your Company
+	 */
+
 	case err := <-c.err:
 		return nil, err
 	case response := <-c.responseMessage:

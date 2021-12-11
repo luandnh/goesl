@@ -11,11 +11,14 @@
 
 package goesl
 
-func IsExistInSlice(s string, list []string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
+func (c *ESLConnection) Api(cmd string) (*ESLResponse, error) {
+	return c.Send("api " + cmd)
+}
+
+func (c *ESLConnection) BgApi(cmd string) error {
+	return c.SendAsync("api " + cmd)
+}
+
+func (c *ESLConnection) Exit(cmd string) error {
+	return c.SendAsync("exit")
 }
