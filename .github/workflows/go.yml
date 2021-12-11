@@ -23,7 +23,7 @@ jobs:
 
     - name: Test
       env:
-        FS_HOST: ${{FS_HOST}}
-        FS_PORT: ${{FS_PORT}}
-        FS_ESLPASS: ${{FS_ESLPASS}}
+        FS_HOST: ${{ secrets.FS_HOST }}
+        FS_PORT: ${{ secrets.FS_PORT }}
+        FS_ESLPASS: ${{ secrets.FS_ESLPASS }}
       run: go test -v ./...
