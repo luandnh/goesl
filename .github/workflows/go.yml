@@ -22,4 +22,8 @@ jobs:
       run: go build -v ./...
 
     - name: Test
+      env:
+        FS_HOST: ${{FS_HOST}}
+        FS_PORT: ${{FS_PORT}}
+        FS_ESLPASS: ${{FS_ESLPASS}}
       run: go test -v ./...
