@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/luandnh/goesl"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,11 +30,12 @@ var (
 
 func init() {
 	FS_PORT, _ = strconv.Atoi(os.Getenv("FS_PORT"))
+	logrus.Info("FS_HOST", FS_HOST)
 }
 
 func TestClient_Dial(t *testing.T) {
 	client, err := goesl.NewClient(FS_HOST, FS_PORT, FS_ESLPASS, 10)
-	assert.Equal(t, err, nil)
+	assert.Nil(t, err)
 	defer client.Close()
 }
 
