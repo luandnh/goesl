@@ -1,6 +1,8 @@
 
 # goesl
 
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/luandnh/goesl)](https://pkg.go.dev/github.com/luandnh/goesl)
+[![Go Report Card](https://goreportcard.com/badge/github.com/luandnh/goesl)](https://goreportcard.com/report/github.com/luandnh/goesl)
 [![Go](https://github.com/luandnh/goesl/actions/workflows/go.yml/badge.svg?branch=v1)](https://github.com/luandnh/goesl/actions/workflows/go.yml)
 
 [FreeSWITCH™](https://freeswitch.com/) Event Socket Library written in Go.
