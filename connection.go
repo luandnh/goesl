@@ -147,12 +147,7 @@ func (c *ESLConnection) Send(cmd string) (*ESLResponse, error) {
 	// Get response
 	c.responseChanMutex.RLock()
 	defer c.responseChanMutex.RUnlock()
-	select { /*
-	 * Created on Sat Dec 11 2021
-	 *
-	 * Copyright (c) 2021 Your Company
-	 */
-
+	select {
 	case err := <-c.err:
 		return nil, err
 	case response := <-c.responseMessage:
@@ -171,6 +166,45 @@ func (c *ESLConnection) SendAsync(cmd string) error {
 
 	_, err := c.conn.Write([]byte(cmd + EndOfMessage))
 	return err
+}
+
+// SendEvent - Loop to passed event headers
+func (c *ESLConnection) SendEvent(eventHeaders []string) (*ESLResponse, error) {
+	c.writeLock.Lock()
+	defer c.writeLock.Unlock()
+
+	_, err := c.conn.Write([]byte("sendevent "))
+	if err != nil {
+		return nil, err
+	}
+	for _, eventHeader := range eventHeaders {
+		_, err := c.conn.Write([]byte(eventHeader))
+		if err != nil {
+			return nil, err
+		}
+		_, err = c.conn.Write([]byte("\r\n"))
+		if err != nil {
+			return nil, err
+		}
+
+	}
+	_, err = c.conn.Write([]byte("\r\n"))
+	if err != nil {
+		return nil, err
+	}
+	// Get response
+	c.responseChanMutex.RLock()
+	defer c.responseChanMutex.RUnlock()
+	select {
+	case err := <-c.err:
+		return nil, err
+	case response := <-c.responseMessage:
+		if response == nil {
+			// Nil here if the channel is closed
+			return nil, errors.New("connection closed")
+		}
+		return response, nil
+	}
 }
 
 // ReadMessage - Read message from channel and return ESLResponse
