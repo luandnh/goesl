@@ -60,7 +60,7 @@ func (client *Client) EstablishConnection() (*ESLConnection, error) {
 		connection.Close()
 		return nil, err
 	} else {
-		connection.logger.Info("Successfully connect to %s\n", connection.conn.RemoteAddr())
+		connection.logger.Debug("successfully connect to %s", connection.conn.RemoteAddr())
 	}
 	return connection, nil
 }
