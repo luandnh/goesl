@@ -13,11 +13,14 @@ package goesl
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/textproto"
+	"strings"
 	"sync"
 	"time"
 )
@@ -252,4 +255,55 @@ func (c *ESLConnection) Close() error {
 func (c *ESLConnection) ExitAndClose() {
 	_, _ = c.Send("exit")
 	c.Close()
+}
+
+// SendEvent - Loop to passed event headers
+func (c *ESLConnection) SendMsg(msg map[string]string, uuid, data string) (*ESLResponse, error) {
+	c.writeLock.Lock()
+	defer c.writeLock.Unlock()
+
+	b := bytes.NewBufferString("sendmsg")
+	if len(uuid) > 0 {
+		if strings.Contains(uuid, "\r\n") {
+			return nil, fmt.Errorf("%v", "invalid uuid")
+		}
+
+		b.WriteString(" " + uuid)
+	}
+	b.WriteString("\n")
+	for k, v := range msg {
+		if strings.Contains(k, "\r\n") {
+			return nil, fmt.Errorf("%s: %s", k, "invalid")
+		}
+
+		if v != "" {
+			if strings.Contains(v, "\r\n") {
+				return nil, fmt.Errorf("%s: %s", v, "invalid")
+			}
+
+			b.WriteString(fmt.Sprintf("%s: %s\n", k, v))
+		}
+	}
+	b.WriteString("\n")
+	if len(msg["content-length"]) > 0 && len(data) > 0 {
+		b.WriteString(data)
+	}
+	b.WriteString(EndOfMessage)
+	_, err := c.conn.Write(b.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	// Get response
+	c.responseChanMutex.RLock()
+	defer c.responseChanMutex.RUnlock()
+	select {
+	case err := <-c.err:
+		return nil, err
+	case response := <-c.responseMessage:
+		if response == nil {
+			// Nil here if the channel is closed
+			return nil, errors.New("connection closed")
+		}
+		return response, nil
+	}
 }
