@@ -100,10 +100,11 @@ func (c *ESLConnection) Authenticate(ctx context.Context, password string) error
 	if err != nil && err.Error() != "EOF" {
 		return err
 	}
+	c.logger.Debug("%s", am.Get("Reply-Text"))
 	if am.Get("Reply-Text") != "+OK accepted" {
 		return errors.New("invalid password")
 	}
-	go c.HandleMessage()
+	go c.receiveLoop()
 	return nil
 }
 
@@ -137,11 +138,19 @@ func (c *ESLConnection) SendWithContext(ctx context.Context, cmd string) (*ESLRe
 	}
 }
 
+const DEFAULT_TIMEOUT = time.Second * 60
+
 // Send - Send command and get response message
 func (c *ESLConnection) Send(cmd string) (*ESLResponse, error) {
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
 
+	ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
+	defer cancel()
+
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = c.conn.SetWriteDeadline(deadline)
+	}
 	_, err := c.conn.Write([]byte(cmd + EndOfMessage))
 	if err != nil {
 		return nil, err
@@ -151,14 +160,16 @@ func (c *ESLConnection) Send(cmd string) (*ESLResponse, error) {
 	c.responseChanMutex.RLock()
 	defer c.responseChanMutex.RUnlock()
 	select {
-	case err := <-c.err:
-		return nil, err
 	case response := <-c.responseMessage:
 		if response == nil {
 			// Nil here if the channel is closed
 			return nil, errors.New("connection closed")
 		}
 		return response, nil
+	case err := <-c.err:
+		return nil, err
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
@@ -176,6 +187,12 @@ func (c *ESLConnection) SendEvent(eventHeaders []string) (*ESLResponse, error) {
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
 
+	ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
+	defer cancel()
+
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = c.conn.SetWriteDeadline(deadline)
+	}
 	_, err := c.conn.Write([]byte("sendevent "))
 	if err != nil {
 		return nil, err
@@ -199,14 +216,16 @@ func (c *ESLConnection) SendEvent(eventHeaders []string) (*ESLResponse, error) {
 	c.responseChanMutex.RLock()
 	defer c.responseChanMutex.RUnlock()
 	select {
-	case err := <-c.err:
-		return nil, err
 	case response := <-c.responseMessage:
 		if response == nil {
 			// Nil here if the channel is closed
 			return nil, errors.New("connection closed")
 		}
 		return response, nil
+	case err := <-c.err:
+		return nil, err
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
@@ -224,30 +243,14 @@ func (c *ESLConnection) ReadMessage() (*ESLResponse, error) {
 	}
 }
 
-// HandleMessage - Handle message from channel
-func (c *ESLConnection) HandleMessage() {
-	done := make(chan bool)
-	go func() {
-		for {
-			msg, err := c.ParseResponse()
-			if err != nil {
-				c.err <- err
-				done <- true
-				break
-			}
-			c.responseMessage <- msg
-		}
-	}()
-	<-done
-	c.Close()
-}
-
 // Close - Close connection
 func (c *ESLConnection) Close() error {
+	c.responseChanMutex.Lock()
+	defer c.responseChanMutex.Unlock()
+	close(c.responseMessage)
 	if err := c.conn.Close(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -261,6 +264,13 @@ func (c *ESLConnection) ExitAndClose() {
 func (c *ESLConnection) SendMsg(msg map[string]string, uuid, data string) (*ESLResponse, error) {
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
+	defer cancel()
+
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = c.conn.SetWriteDeadline(deadline)
+	}
 
 	b := bytes.NewBufferString("sendmsg")
 	if len(uuid) > 0 {
@@ -297,13 +307,26 @@ func (c *ESLConnection) SendMsg(msg map[string]string, uuid, data string) (*ESLR
 	c.responseChanMutex.RLock()
 	defer c.responseChanMutex.RUnlock()
 	select {
-	case err := <-c.err:
-		return nil, err
 	case response := <-c.responseMessage:
 		if response == nil {
 			// Nil here if the channel is closed
 			return nil, errors.New("connection closed")
 		}
 		return response, nil
+	case err := <-c.err:
+		return nil, err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (c *ESLConnection) receiveLoop() {
+	for c.runningContext.Err() == nil {
+		msg, err := c.ParseResponse()
+		if err != nil {
+			c.err <- err
+			break
+		}
+		c.responseMessage <- msg
 	}
 }
