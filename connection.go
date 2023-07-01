@@ -145,12 +145,12 @@ func (c *ESLConnection) Send(cmd string) (*ESLResponse, error) {
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
+	// defer cancel()
 
-	if deadline, ok := ctx.Deadline(); ok {
-		_ = c.conn.SetWriteDeadline(deadline)
-	}
+	// if deadline, ok := ctx.Deadline(); ok {
+	// 	_ = c.conn.SetWriteDeadline(deadline)
+	// }
 	_, err := c.conn.Write([]byte(cmd + EndOfMessage))
 	if err != nil {
 		return nil, err
@@ -168,8 +168,8 @@ func (c *ESLConnection) Send(cmd string) (*ESLResponse, error) {
 		return response, nil
 	case err := <-c.err:
 		return nil, err
-	case <-ctx.Done():
-		return nil, ctx.Err()
+		// case <-ctx.Done():
+		// 	return nil, ctx.Err()
 	}
 }
 
@@ -187,12 +187,13 @@ func (c *ESLConnection) SendEvent(eventHeaders []string) (*ESLResponse, error) {
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
+	// defer cancel()
 
-	if deadline, ok := ctx.Deadline(); ok {
-		_ = c.conn.SetWriteDeadline(deadline)
-	}
+	// if deadline, ok := ctx.Deadline(); ok {
+	// 	_ = c.conn.SetWriteDeadline(deadline)
+	// }
+
 	_, err := c.conn.Write([]byte("sendevent "))
 	if err != nil {
 		return nil, err
@@ -224,8 +225,8 @@ func (c *ESLConnection) SendEvent(eventHeaders []string) (*ESLResponse, error) {
 		return response, nil
 	case err := <-c.err:
 		return nil, err
-	case <-ctx.Done():
-		return nil, ctx.Err()
+		// case <-ctx.Done():
+		// 	return nil, ctx.Err()
 	}
 }
 
@@ -265,12 +266,12 @@ func (c *ESLConnection) SendMsg(msg map[string]string, uuid, data string) (*ESLR
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
+	// defer cancel()
 
-	if deadline, ok := ctx.Deadline(); ok {
-		_ = c.conn.SetWriteDeadline(deadline)
-	}
+	// if deadline, ok := ctx.Deadline(); ok {
+	// 	_ = c.conn.SetWriteDeadline(deadline)
+	// }
 
 	b := bytes.NewBufferString("sendmsg")
 	if len(uuid) > 0 {
@@ -315,8 +316,8 @@ func (c *ESLConnection) SendMsg(msg map[string]string, uuid, data string) (*ESLR
 		return response, nil
 	case err := <-c.err:
 		return nil, err
-	case <-ctx.Done():
-		return nil, ctx.Err()
+		// case <-ctx.Done():
+		// 	return nil, ctx.Err()
 	}
 }
 

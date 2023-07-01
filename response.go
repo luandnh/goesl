@@ -51,6 +51,7 @@ var (
 type ESLResponse struct {
 	Headers map[string]string
 	Body    []byte
+	Err     error
 }
 
 // GetReply - Check value in header
@@ -128,11 +129,14 @@ func (c *ESLConnection) ParseResponse() (*ESLResponse, error) {
 		reply := header.Get("Reply-Text")
 
 		if strings.Contains(reply, "-ERR") {
-			return nil, errors.New("unsuccessful reply : " + reply[5:])
+			// return nil, errors.New("unsuccessful reply : " + reply[5:])
+			response.Err = errors.New("unsuccessful reply : " + reply[5:])
 		}
 	case ContentType_APIResponse:
 		if strings.Contains(string(response.Body), "-ERR") {
-			return nil, errors.New("unsuccessful reply : " + string(response.Body)[5:])
+			// return nil, errors.New("unsuccessful reply : " + string(response.Body)[5:])
+			response.Err = errors.New("unsuccessful reply : " + string(response.Body)[5:])
+
 		}
 	case ContentType_EventJSON:
 		var decoded map[string]interface{}
