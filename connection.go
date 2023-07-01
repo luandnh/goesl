@@ -39,6 +39,8 @@ type ESLConnection struct {
 	runningContext context.Context
 	logger         Logger
 	stopFunc       func()
+
+	isClosed bool
 }
 
 const EndOfMessage = "\r\n\r\n"
@@ -145,12 +147,12 @@ func (c *ESLConnection) Send(cmd string) (*ESLResponse, error) {
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
 
-	// ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
-	// defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
+	defer cancel()
 
-	// if deadline, ok := ctx.Deadline(); ok {
-	// 	_ = c.conn.SetWriteDeadline(deadline)
-	// }
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = c.conn.SetWriteDeadline(deadline)
+	}
 	_, err := c.conn.Write([]byte(cmd + EndOfMessage))
 	if err != nil {
 		return nil, err
@@ -168,8 +170,8 @@ func (c *ESLConnection) Send(cmd string) (*ESLResponse, error) {
 		return response, nil
 	case err := <-c.err:
 		return nil, err
-		// case <-ctx.Done():
-		// 	return nil, ctx.Err()
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
@@ -187,13 +189,12 @@ func (c *ESLConnection) SendEvent(eventHeaders []string) (*ESLResponse, error) {
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
 
-	// ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
-	// defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
+	defer cancel()
 
-	// if deadline, ok := ctx.Deadline(); ok {
-	// 	_ = c.conn.SetWriteDeadline(deadline)
-	// }
-
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = c.conn.SetWriteDeadline(deadline)
+	}
 	_, err := c.conn.Write([]byte("sendevent "))
 	if err != nil {
 		return nil, err
@@ -225,8 +226,8 @@ func (c *ESLConnection) SendEvent(eventHeaders []string) (*ESLResponse, error) {
 		return response, nil
 	case err := <-c.err:
 		return nil, err
-		// case <-ctx.Done():
-		// 	return nil, ctx.Err()
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
@@ -248,7 +249,10 @@ func (c *ESLConnection) ReadMessage() (*ESLResponse, error) {
 func (c *ESLConnection) Close() error {
 	c.responseChanMutex.Lock()
 	defer c.responseChanMutex.Unlock()
-	close(c.responseMessage)
+	if !c.isClosed {
+		close(c.responseMessage)
+		c.isClosed = true
+	}
 	if err := c.conn.Close(); err != nil {
 		return err
 	}
@@ -266,12 +270,12 @@ func (c *ESLConnection) SendMsg(msg map[string]string, uuid, data string) (*ESLR
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
 
-	// ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
-	// defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), DEFAULT_TIMEOUT)
+	defer cancel()
 
-	// if deadline, ok := ctx.Deadline(); ok {
-	// 	_ = c.conn.SetWriteDeadline(deadline)
-	// }
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = c.conn.SetWriteDeadline(deadline)
+	}
 
 	b := bytes.NewBufferString("sendmsg")
 	if len(uuid) > 0 {
@@ -316,8 +320,8 @@ func (c *ESLConnection) SendMsg(msg map[string]string, uuid, data string) (*ESLR
 		return response, nil
 	case err := <-c.err:
 		return nil, err
-		// case <-ctx.Done():
-		// 	return nil, ctx.Err()
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
@@ -340,7 +344,7 @@ func (c *ESLConnection) doMessage() error {
 
 	c.responseChanMutex.RLock()
 	defer c.responseChanMutex.RUnlock()
-	if len(c.responseMessage) <= 0 {
+	if c.isClosed {
 		return errors.New("connection closed, no response channel")
 	}
 
@@ -351,3 +355,21 @@ func (c *ESLConnection) doMessage() error {
 	}
 	return nil
 }
+
+// // HandleMessage - Handle message from channel
+// func (c *ESLConnection) HandleMessage() {
+// 	done := make(chan bool)
+// 	go func() {
+// 		for {
+// 			msg, err := c.ParseResponse()
+// 			if err != nil {
+// 				c.err <- err
+// 				done <- true
+// 				break
+// 			}
+// 			c.responseMessage <- msg
+// 		}
+// 	}()
+// 	<-done
+// 	c.Close()
+// }
