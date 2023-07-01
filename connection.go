@@ -104,7 +104,7 @@ func (c *ESLConnection) Authenticate(ctx context.Context, password string) error
 	if am.Get("Reply-Text") != "+OK accepted" {
 		return errors.New("invalid password")
 	}
-	go c.receiveLoop()
+	go c.HandleMessage()
 	return nil
 }
 
@@ -320,13 +320,31 @@ func (c *ESLConnection) SendMsg(msg map[string]string, uuid, data string) (*ESLR
 	}
 }
 
-func (c *ESLConnection) receiveLoop() {
-	for c.runningContext.Err() == nil {
-		msg, err := c.ParseResponse()
-		if err != nil {
-			c.err <- err
-			break
+// func (c *ESLConnection) receiveLoop() {
+// 	for c.runningContext.Err() == nil {
+// 		msg, err := c.ParseResponse()
+// 		if err != nil {
+// 			c.err <- err
+// 			break
+// 		}
+// 		c.responseMessage <- msg
+// 	}
+// }
+
+// HandleMessage - Handle message from channel
+func (c *ESLConnection) HandleMessage() {
+	done := make(chan bool)
+	go func() {
+		for {
+			msg, err := c.ParseResponse()
+			if err != nil {
+				c.err <- err
+				done <- true
+				break
+			}
+			c.responseMessage <- msg
 		}
-		c.responseMessage <- msg
-	}
+	}()
+	<-done
+	c.Close()
 }
