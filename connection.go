@@ -326,14 +326,21 @@ func (c *ESLConnection) SendMsg(msg map[string]string, uuid, data string) (*ESLR
 }
 
 func (c *ESLConnection) receiveLoop() {
-	for c.runningContext.Err() == nil {
-		err := c.doMessage()
-		if err != nil {
-			c.logger.Warn("err receiving message: %v", err)
-			c.err <- err
-			break
+	done := make(chan bool)
+	go func() {
+		for c.runningContext.Err() == nil {
+			err := c.doMessage()
+			if err != nil {
+				c.logger.Warn("err receiving message: %v", err)
+				c.err <- err
+				done <- true
+				break
+			}
 		}
-	}
+	}()
+	<-done
+	c.Close()
+
 }
 
 func (c *ESLConnection) doMessage() error {
