@@ -104,7 +104,7 @@ func (c *ESLConnection) Authenticate(ctx context.Context, password string) error
 	if am.Get("Reply-Text") != "+OK accepted" {
 		return errors.New("invalid password")
 	}
-	go c.HandleMessage()
+	go c.receiveLoop()
 	return nil
 }
 
@@ -320,31 +320,33 @@ func (c *ESLConnection) SendMsg(msg map[string]string, uuid, data string) (*ESLR
 	}
 }
 
-// func (c *ESLConnection) receiveLoop() {
-// 	for c.runningContext.Err() == nil {
-// 		msg, err := c.ParseResponse()
-// 		if err != nil {
-// 			c.err <- err
-// 			break
-// 		}
-// 		c.responseMessage <- msg
-// 	}
-// }
-
-// HandleMessage - Handle message from channel
-func (c *ESLConnection) HandleMessage() {
-	done := make(chan bool)
-	go func() {
-		for {
-			msg, err := c.ParseResponse()
-			if err != nil {
-				c.err <- err
-				done <- true
-				break
-			}
-			c.responseMessage <- msg
+func (c *ESLConnection) receiveLoop() {
+	for c.runningContext.Err() == nil {
+		err := c.doMessage()
+		if err != nil {
+			c.logger.Warn("err receiving message: %v", err)
+			c.err <- err
+			break
 		}
-	}()
-	<-done
-	c.Close()
+	}
+}
+
+func (c *ESLConnection) doMessage() error {
+	msg, err := c.ParseResponse()
+	if err != nil {
+		return err
+	}
+
+	c.responseChanMutex.RLock()
+	defer c.responseChanMutex.RUnlock()
+	if len(c.responseMessage) <= 0 {
+		return errors.New("connection closed, no response channel")
+	}
+
+	select {
+	case c.responseMessage <- msg:
+	case <-c.runningContext.Done():
+		return c.runningContext.Err()
+	}
+	return nil
 }
