@@ -106,7 +106,7 @@ func (c *ESLConnection) Authenticate(ctx context.Context, password string) error
 	if am.Get("Reply-Text") != "+OK accepted" {
 		return errors.New("invalid password")
 	}
-	go c.receiveLoop()
+	go c.HandleMessage()
 	return nil
 }
 
@@ -231,15 +231,10 @@ func (c *ESLConnection) ReadMessage() (*ESLResponse, error) {
 
 // Close - Close connection
 func (c *ESLConnection) Close() error {
-	c.responseChanMutex.Lock()
-	defer c.responseChanMutex.Unlock()
-	if !c.isClosed {
-		close(c.responseMessage)
-		c.isClosed = true
-	}
 	if err := c.conn.Close(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -309,58 +304,58 @@ func (c *ESLConnection) SendMsg(msg map[string]string, uuid, data string) (*ESLR
 	}
 }
 
-func (c *ESLConnection) receiveLoop() {
+// func (c *ESLConnection) receiveLoop() {
+// 	done := make(chan bool)
+// 	go func() {
+// 		for c.runningContext.Err() == nil {
+// 			err := c.doMessage()
+// 			if err != nil {
+// 				c.logger.Warn("err receiving message: %v", err)
+// 				c.err <- err
+// 				done <- true
+// 				break
+// 			}
+// 		}
+// 	}()
+// 	<-done
+// 	c.Close()
+// }
+
+// func (c *ESLConnection) doMessage() error {
+// 	msg, err := c.ParseResponse()
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	c.responseChanMutex.RLock()
+// 	defer c.responseChanMutex.RUnlock()
+// 	if c.isClosed {
+// 		return errors.New("connection closed, no response channel")
+// 	}
+
+// 	select {
+// 	case c.responseMessage <- msg:
+// 	case <-c.runningContext.Done():
+// 		return c.runningContext.Err()
+// 	}
+// 	return nil
+// }
+
+// HandleMessage - Handle message from channel
+func (c *ESLConnection) HandleMessage() {
 	done := make(chan bool)
 	go func() {
-		for c.runningContext.Err() == nil {
-			err := c.doMessage()
+		for {
+			msg, err := c.ParseResponse()
 			if err != nil {
 				c.logger.Warn("err receiving message: %v", err)
 				c.err <- err
 				done <- true
 				break
 			}
+			c.responseMessage <- msg
 		}
 	}()
 	<-done
 	c.Close()
-
 }
-
-func (c *ESLConnection) doMessage() error {
-	msg, err := c.ParseResponse()
-	if err != nil {
-		return err
-	}
-
-	c.responseChanMutex.RLock()
-	defer c.responseChanMutex.RUnlock()
-	if c.isClosed {
-		return errors.New("connection closed, no response channel")
-	}
-
-	select {
-	case c.responseMessage <- msg:
-	case <-c.runningContext.Done():
-		return c.runningContext.Err()
-	}
-	return nil
-}
-
-// // HandleMessage - Handle message from channel
-// func (c *ESLConnection) HandleMessage() {
-// 	done := make(chan bool)
-// 	go func() {
-// 		for {
-// 			msg, err := c.ParseResponse()
-// 			if err != nil {
-// 				c.err <- err
-// 				done <- true
-// 				break
-// 			}
-// 			c.responseMessage <- msg
-// 		}
-// 	}()
-// 	<-done
-// 	c.Close()
-// }
