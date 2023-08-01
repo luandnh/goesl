@@ -255,8 +255,8 @@ func (c *ESLConnection) Close() {
 func (c *ESLConnection) close() {
 	// c.responseChanMutex.Lock()
 	// defer c.responseChanMutex.Unlock()
-	close(c.responseMessage)
-	c.isClosed = true
+	// close(c.responseMessage)
+	// c.isClosed = true
 	if err := c.conn.Close(); err != nil {
 		c.logger.Error("close connection error: %v", err)
 	}
@@ -373,6 +373,7 @@ func (c *ESLConnection) doMessage() error {
 // 		for {
 // 			msg, err := c.ParseResponse()
 // 			if err != nil {
+// 				c.logger.Warn("err receiving message: %v", err)
 // 				c.err <- err
 // 				done <- true
 // 				break
