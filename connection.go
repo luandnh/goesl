@@ -253,8 +253,8 @@ func (c *ESLConnection) Close() {
 
 // Close - Close connection
 func (c *ESLConnection) close() {
-	c.responseChanMutex.Lock()
-	defer c.responseChanMutex.Unlock()
+	// c.responseChanMutex.Lock()
+	// defer c.responseChanMutex.Unlock()
 	close(c.responseMessage)
 	c.isClosed = true
 	if err := c.conn.Close(); err != nil {
