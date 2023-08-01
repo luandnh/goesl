@@ -40,7 +40,8 @@ type ESLConnection struct {
 	logger         Logger
 	stopFunc       func()
 
-	isClosed bool
+	isClosed  bool
+	closeOnce sync.Once
 }
 
 const EndOfMessage = "\r\n\r\n"
@@ -245,13 +246,21 @@ func (c *ESLConnection) ReadMessage() (*ESLResponse, error) {
 	}
 }
 
-// Close - Close connection
-func (c *ESLConnection) Close() error {
-	if err := c.conn.Close(); err != nil {
-		return err
-	}
+// Close - Close our connection to FreeSWITCH without sending "exit". Protected by a sync.Once
+func (c *ESLConnection) Close() {
+	c.closeOnce.Do(c.close)
+}
 
-	return nil
+// Close - Close connection
+func (c *ESLConnection) close() {
+	c.responseChanMutex.Lock()
+	defer c.responseChanMutex.Unlock()
+	close(c.responseMessage)
+	c.isClosed = true
+	if err := c.conn.Close(); err != nil {
+		c.logger.Error("close connection error: %v", err)
+	}
+	return
 }
 
 // ExitAndClose - Send exit command before close connection
@@ -364,7 +373,6 @@ func (c *ESLConnection) doMessage() error {
 // 		for {
 // 			msg, err := c.ParseResponse()
 // 			if err != nil {
-// 				c.logger.Warn("err receiving message: %v", err)
 // 				c.err <- err
 // 				done <- true
 // 				break
